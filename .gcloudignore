@@ -1,0 +1,14 @@
+env
+.vscode
+dataflow
+__pycache__
+.gitignore
+LICENSE
+README.md
+.git
+.github
+test.py
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache

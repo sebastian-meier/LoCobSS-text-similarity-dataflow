@@ -1,55 +1,60 @@
-from __future__ import absolute_import
+import mysql.connector
 
-import argparse
-import logging
+from dotenv import load_dotenv
+load_dotenv()
 
-import apache_beam as beam
-from apache_beam.io import ReadFromText
-from apache_beam.io.fileio import WriteToFiles
-from apache_beam.options.pipeline_options import PipelineOptions
-from apache_beam.options.pipeline_options import SetupOptions
+import os
 
-import tensorflow as tf
+from google.cloud import storage
+
 import tensorflow_hub as hub
 import numpy as np
 
-def get_embed(input):
-  module = hub.load('https://tfhub.dev/google/universal-sentence-encoder/4')
-  embed = module(input)
-  return embed
+def main(args):
+  # ----------------------
+  # Connect to questions-database and save all questions to a text file (questions.txt)
 
-def run(argv=None, save_main_session=True):
-  parser = argparse.ArgumentParser()
+  db = mysql.connector.connect(
+    host=os.environ.get('MYSQL_SERVER'),
+    user=os.environ.get('MYSQL_USER'),
+    password=os.environ.get('MYSQL_PASS'),
+    database=os.environ.get('MYSQL_DB')
+  )
+
+  cursor = db.cursor()
+
+  cursor.execute("SELECT id, question FROM {}".format(os.environ.get('MYSQL_TABLE')))
+
+  result_q = []
+  result_id = []
+
+  for r in cursor.fetchall():
+    result_id.append(str(r[0]))
+    result_q.append(r[1].decode("utf-8"))
   
-  # a file with one text per line on google storage
-  parser.add_argument(
-      '--input',
-      dest='input',
-      required=True,
-      help='Input file to process.')
+  storage_client = storage.Client()
+  bucket = storage_client.bucket(os.environ.get('GS_BUCKET'))
 
-  # google storage output
-  parser.add_argument(
-      '--output',
-      dest='output',
-      required=True,
-      help='Output file to write results to.')
+  # store question and ids as text files
+  blob = bucket.blob(os.environ.get('GS_FILE_IDS'))
+  blob.upload_from_string('\n'.join(result_id))
 
-  known_args, pipeline_args = parser.parse_known_args(argv)
+  blob = bucket.blob(os.environ.get('GS_FILE_QS'))
+  blob.upload_from_string('\n'.join(result_q))
 
-  pipeline_options = PipelineOptions(pipeline_args)
-  pipeline_options.view_as(SetupOptions).save_main_session = save_main_session
-  
-  with beam.Pipeline(options=pipeline_options) as p:
-    # read in data
-    lines = p | 'Read' >> ReadFromText(known_args.input)
-    
-    embeds = get_embed(lines)
-    output = np.array(embeds)
-    
-    # write output
-    output | 'Write' >> WriteToFiles(known_args.output)
+  # embed questions
+  module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" 
+  model = hub.load(module_url)
+  embeddings = np.array(model(result_q))
 
-if __name__ == '__main__':
-  logging.getLogger().setLevel(logging.INFO)
-  run()
+  # store embeddings
+  data = np.array(embeddings)
+  np.save('/tmp/temp.npy', data)
+
+  blob = bucket.blob(os.environ.get('GS_FILE_NPY'))
+  blob.upload_from_filename('/tmp/temp.npy')
+
+  return 'embeddings up to date'
+
+def demo():
+  print("demo")
