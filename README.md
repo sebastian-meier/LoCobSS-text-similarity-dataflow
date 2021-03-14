@@ -13,7 +13,7 @@ python test.py
 
 ## Deploy
 ```bash
-gcloud functions deploy FUNCTION_NAME --entry-point main --runtime python38 --trigger-http --allow-unauthenticated
+gcloud functions deploy questions_mysql-to-cloud-storage --entry-point main --runtime python38 --trigger-http --region europe-west3 --memory 4G
 ```
 
 ## Legacy

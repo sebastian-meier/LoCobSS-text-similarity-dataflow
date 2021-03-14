@@ -23,7 +23,7 @@ def main(args):
 
   cursor = db.cursor()
 
-  cursor.execute("SELECT id, question FROM {}".format(os.environ.get('MYSQL_TABLE')))
+  cursor.execute("SELECT id, question_en FROM {}".format(os.environ.get('MYSQL_TABLE')))
 
   result_q = []
   result_id = []
