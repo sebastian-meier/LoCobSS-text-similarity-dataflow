@@ -143,7 +143,7 @@ def main(args):
   if run_all:
     extra_columns = ", pca_x, pca_y, mds_x, mds_y"
 
-  query = "INSERT INTO questions_coordinates (id, tsne_x, tsne_y%s) VALUES ".format(extra_columns)
+  query = "INSERT INTO questions_coordinates (id, tsne_x, tsne_y{}) VALUES ".format(extra_columns)
   for i, row in enumerate(result_id):
     if i > 0:
       query += ','
