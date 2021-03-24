@@ -149,7 +149,8 @@ def main(args):
       query += ','
     query += "({},{:.4f},{:.4f}".format(result_id[i], tsne_out[i][0], tsne_out[i][1])
     if run_all:
-      query += ",{:.4f},{:.4f},{:.4f},{:.4f})".format(pca_out[i][0], pca_out[i][1], mds_out[i][0], mds_out[i][1])
+      query += ",{:.4f},{:.4f},{:.4f},{:.4f}".format(pca_out[i][0], pca_out[i][1], mds_out[i][0], mds_out[i][1])
+    query += ")"
 
   cursor.execute("TRUNCATE TABLE questions_coordinates")
   cursor.execute(query)
