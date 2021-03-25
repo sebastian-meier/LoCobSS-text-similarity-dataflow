@@ -1,5 +1,5 @@
 # LoCobSS-text-similarity-dataflow
-Collecting text strings froma MYSQL database, caching them as text files on Google Cloud Storage, creating embeddings from the text elements through [universal-sentence-encoder](https://tfhub.dev/google/universal-sentence-encoder/4) and storing the resulting embeddings also on Google Cloud Storage. The resulting embeddings are used for similarity search: [LoCobSS-text-similarity](https://github.com/sebastian-meier/LoCobSS-text-similarity).
+Collecting text strings and embeddings from a MYSQL database, caching them as text files on Google Cloud Storage. The resulting embeddings are used for similarity search: [LoCobSS-text-similarity](https://github.com/sebastian-meier/LoCobSS-text-similarity).
 
 ## Configuration
 Create a **.env** file based on the **.env-sample**.
@@ -16,5 +16,10 @@ python test.py
 gcloud functions deploy questions_mysql-to-cloud-storage --entry-point main --runtime python38 --trigger-http --region europe-west3 --memory 4G
 ```
 
-## Legacy
-We started exploring Google Dataflow, but found it too much hassle for something so straight forward.
+## Additional scripts
+
+### batch embeddings
+
+`./batch/main.py`
+
+This gets all current questions from the database, creates embeddings and uploads the resulting vectors to the database. The script only collects those questions that do not already have a set of vectors. Clear the vector table, if you want all vectors to be (re-)created.

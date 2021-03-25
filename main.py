@@ -7,7 +7,6 @@ import os
 
 from google.cloud import storage
 
-import tensorflow_hub as hub
 import numpy as np
 
 from sklearn import manifold
@@ -25,7 +24,7 @@ def main(args):
   run_all = False
 
   # ----------------------
-  # Connect to questions-database and save all questions to a text file (questions.txt)
+  # Connect to questions-database and save all questions and ids to text files on google cloud storage
 
   db = mysql.connector.connect(
     host=os.environ.get('MYSQL_SERVER'),
@@ -36,17 +35,34 @@ def main(args):
 
   cursor = db.cursor()
 
-  cursor.execute("SELECT id, question_en FROM questions")
+  fields = ""
+  for i in range(512):
+    fields += ", vec_{}".format(i + 1)
+
+  cursor.execute("""SELECT 
+    id, question_en{} 
+  FROM 
+    questions 
+  JOIN
+    question_vectors
+    ON question_vectors.question_id = questions.id""".format(fields))
 
   result_q = []
   result_id = []
+  result_id_a = []
+  vectors = []
 
   for r in cursor.fetchall():
     result_id.append(str(r[0]))
+    result_id_a.append([int(r[0])])
     if r[1] == None:
       result_q.append("")
     else:
       result_q.append(r[1].decode("utf-8"))
+    vector = []
+    for i in range(512):
+      vector.append(r[i+2])
+    vectors.append(vector)
   
   cursor.close()
   db.close()
@@ -62,20 +78,14 @@ def main(args):
 
   blob = bucket.blob(os.environ.get('GS_FILE_QS'))
   blob.upload_from_string('\n'.join(result_q))
-
-  # embed questions
-  module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" 
-  model = hub.load(module_url)
-  embeddings = np.array(model(result_q))
-
-  # store embeddings
-  data = np.array(embeddings)
+  
+  data = np.array(vectors)
   np.save('/tmp/temp.npy', data)
 
   blob = bucket.blob(os.environ.get('GS_FILE_NPY'))
   blob.upload_from_filename('/tmp/temp.npy')
 
-  print('embedding ✅')
+  print('google storage update ✅')
 
   def map_2d_array(a):
     for axis in range(2):
@@ -99,7 +109,7 @@ def main(args):
     mds_model = manifold.MDS(n_components=2, dissimilarity='precomputed', random_state=1, n_init=4, max_iter=100, n_jobs=-1)
     distances = pairwise_distances(data)
     mds_out = map_2d_array(mds_model.fit_transform(distances))
-    np.savetxt('/tmp/mds.gz', np.array(mds_out), delimiter=",", fmt='%.4f')
+    np.savetxt('/tmp/mds.gz', np.append(result_id_a, np.array(mds_out), 1), delimiter=",", fmt='%.4f')
     blob = bucket.blob(os.environ.get('GS_FILE_MDS'))
     blob.content_encoding = 'gzip'
     blob.content_type = 'text/csv'
@@ -109,8 +119,8 @@ def main(args):
 
   # distance matrix to 2d coords using t-SNE
   tsne_model = manifold.TSNE(n_components=2, init='pca', random_state=1, n_jobs=-1)
-  tsne_out = map_2d_array(tsne_model.fit_transform(embeddings))
-  np.savetxt("/tmp/tsne.gz", np.array(tsne_out), delimiter=",", fmt='%.4f')
+  tsne_out = map_2d_array(tsne_model.fit_transform(data))
+  np.savetxt("/tmp/tsne.gz", np.append(result_id_a, np.array(tsne_out), 1), delimiter=",", fmt='%.4f')
   blob = bucket.blob(os.environ.get('GS_FILE_TSNE'))
   blob.content_encoding = 'gzip'
   blob.content_type = 'text/csv'
@@ -121,8 +131,8 @@ def main(args):
   if run_all:
     # distance matrix to 2d coords using PCA
     pca_model = decomposition.PCA(n_components=2, random_state=1)
-    pca_out = map_2d_array(pca_model.fit_transform(embeddings))
-    np.savetxt("/tmp/pca.gz", np.array(pca_out), delimiter=",", fmt='%.4f')
+    pca_out = map_2d_array(pca_model.fit_transform(data))
+    np.savetxt("/tmp/pca.gz", np.append(result_id_a, np.array(pca_out), 1), delimiter=",", fmt='%.4f')
     blob = bucket.blob(os.environ.get('GS_FILE_PCA'))
     blob.content_encoding = 'gzip'
     blob.content_type = 'text/csv'
