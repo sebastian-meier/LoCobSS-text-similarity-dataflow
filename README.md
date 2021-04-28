@@ -1,3 +1,5 @@
+This repo is part of the LoCobSS research project. More details about the project and dependencies to other repos can be found [here](https://github.com/sebastian-meier/LoCobSS-documentation).
+
 # LoCobSS-text-similarity-dataflow
 Collecting text strings and embeddings from a MYSQL database, caching them as text files on Google Cloud Storage. The resulting embeddings are used for similarity search: [LoCobSS-text-similarity](https://github.com/sebastian-meier/LoCobSS-text-similarity).
 
